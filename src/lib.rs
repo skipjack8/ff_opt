@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![feature(const_fn)]
 
 // #![feature(test)]
 // mod tests;
@@ -21,16 +22,14 @@ use std::error::Error;
 use std::fmt;
 use std::io::{self, Read, Write};
 
-/// This trait represents an element of a field.
-pub trait Field:
-    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static + rand::Rand
-{
-    /// Returns the zero element of the field, the additive identity.
+pub trait Identity: Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static {
     fn zero() -> Self;
-
-    /// Returns the one element of the field, the multiplicative identity.
     fn one() -> Self;
+}
 
+/// This trait represents an element of a field.
+pub trait Field: Identity + rand::Rand
+{
     /// Returns true iff this element is zero.
     fn is_zero(&self) -> bool;
 
@@ -223,8 +222,27 @@ impl fmt::Display for PrimeFieldDecodingError {
     }
 }
 
+pub trait SizedField: Sized + Copy + 'static {
+    /// How many bits are needed to represent an element of this field.
+    const NUM_BITS: u32;
+
+    /// How many bits of information can be reliably stored in the field element.
+    const CAPACITY: u32;
+
+    /// Returns the multiplicative generator of `char()` - 1 order. This element
+    /// must also be quadratic nonresidue.
+    fn multiplicative_generator() -> Self;
+
+    /// 2^s * t = `char()` - 1 with t odd.
+    const S: u32;
+
+    /// Returns the 2^s root of unity computed by exponentiating the `multiplicative_generator()`
+    /// by t.
+    fn root_of_unity() -> Self;
+}
+
 /// This represents an element of a prime field.
-pub trait PrimeField: Field {
+pub trait PrimeField: Field + SizedField {
     /// The prime field can be converted back and forth into this biginteger
     /// representation.
     type Repr: PrimeFieldRepr + From<Self>;
@@ -281,26 +299,9 @@ pub trait PrimeField: Field {
 
     /// Expose Montgommery represendation.
     fn into_raw_repr(&self) -> Self::Repr;
-
+    
     /// Returns the field characteristic; the modulus.
     fn char() -> Self::Repr;
-
-    /// How many bits are needed to represent an element of this field.
-    const NUM_BITS: u32;
-
-    /// How many bits of information can be reliably stored in the field element.
-    const CAPACITY: u32;
-
-    /// Returns the multiplicative generator of `char()` - 1 order. This element
-    /// must also be quadratic nonresidue.
-    fn multiplicative_generator() -> Self;
-
-    /// 2^s * t = `char()` - 1 with t odd.
-    const S: u32;
-
-    /// Returns the 2^s root of unity computed by exponentiating the `multiplicative_generator()`
-    /// by t.
-    fn root_of_unity() -> Self;
 }
 
 /// An "engine" is a collection of types (fields, elliptic curve groups, etc.)

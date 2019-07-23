@@ -1,4 +1,5 @@
 #![recursion_limit = "1024"]
+#![feature(const_fn)]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -128,7 +129,7 @@ fn fetch_attr(name: &str, attrs: &[syn::Attribute]) -> Option<String> {
 fn prime_field_repr_impl(repr: &syn::Ident, limbs: usize) -> proc_macro2::TokenStream {
     quote! {
 
-        #[derive(Copy, Clone, PartialEq, Eq, Default)]
+        #[derive(Copy, Clone, PartialEq, Eq)]
         pub struct #repr(
             pub [u64; #limbs]
         );
@@ -185,6 +186,13 @@ fn prime_field_repr_impl(repr: &syn::Ident, limbs: usize) -> proc_macro2::TokenS
                 let mut repr = Self::default();
                 repr.0[0] = val;
                 repr
+            }
+        }
+
+        impl std::default::Default for #repr {
+            #[inline(always)]
+            const fn default() -> Self {
+                Self([0u64; #limbs])
             }
         }
 
@@ -918,39 +926,53 @@ fn prime_field_impl(
                 MODULUS
             }
 
+        }
+
+        impl ::ff::SizedField for #name {
             const NUM_BITS: u32 = MODULUS_BITS;
 
             const CAPACITY: u32 = Self::NUM_BITS - 1;
 
-            fn multiplicative_generator() -> Self {
+            const fn multiplicative_generator() -> Self {
                 #name(GENERATOR)
             }
 
             const S: u32 = S;
 
-            fn root_of_unity() -> Self {
+            const fn root_of_unity() -> Self {
                 #name(ROOT_OF_UNITY)
             }
+        }
 
+        impl ::ff::Identity for #name {
+            #[inline(always)]
+            const fn zero() -> Self {
+                #name(#repr([0u64; #limbs]))
+            }
+
+            #[inline(always)]
+            const fn one() -> Self {
+                #name(R)
+            }
         }
 
         impl ::ff::Field for #name {
-            #[inline]
-            fn zero() -> Self {
-                #name(#repr::from(0))
-            }
+            // #[inline]
+            // fn zero() -> Self {
+            //     #name(#repr::from(0))
+            // }
 
-            #[inline]
-            fn one() -> Self {
-                #name(R)
-            }
+            // #[inline]
+            // fn one() -> Self {
+            //     #name(R)
+            // }
 
-            #[inline]
+            #[inline(always)]
             fn is_zero(&self) -> bool {
                 self.0.is_zero()
             }
 
-            #[inline]
+            #[inline(always)]
             fn add_assign(&mut self, other: &#name) {
                 // This cannot exceed the backing capacity.
                 self.0.add_nocarry(&other.0);
@@ -959,7 +981,7 @@ fn prime_field_impl(
                 self.reduce();
             }
 
-            #[inline]
+            #[inline(always)]
             fn double(&mut self) {
                 // This cannot exceed the backing capacity.
                 self.0.mul2();
@@ -968,7 +990,7 @@ fn prime_field_impl(
                 self.reduce();
             }
 
-            #[inline]
+            #[inline(always)]
             fn sub_assign(&mut self, other: &#name) {
                 // If `other` is larger than `self`, we'll need to add the modulus to self first.
                 if other.0 > self.0 {
@@ -978,7 +1000,7 @@ fn prime_field_impl(
                 self.0.sub_noborrow(&other.0);
             }
 
-            #[inline]
+            #[inline(always)]
             fn negate(&mut self) {
                 if !self.is_zero() {
                     let mut tmp = MODULUS;
@@ -1061,7 +1083,7 @@ fn prime_field_impl(
         }
 
         impl std::default::Default for #name {
-            fn default() -> Self {
+            const fn default() -> Self {
                 Self::zero()
             }
         }
