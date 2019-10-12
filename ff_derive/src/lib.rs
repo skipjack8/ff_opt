@@ -52,13 +52,8 @@ pub fn prime_field(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let mut gen = proc_macro2::TokenStream::new();
 
-    let (constants_impl, sqrt_impl) = prime_field_constants_and_sqrt(
-        &ast.ident,
-        &repr_ident,
-        modulus,
-        limbs,
-        generator,
-    );
+    let (constants_impl, sqrt_impl) =
+        prime_field_constants_and_sqrt(&ast.ident, &repr_ident, modulus, limbs, generator);
 
     gen.extend(constants_impl);
     gen.extend(prime_field_repr_impl(&repr_ident, limbs));
@@ -142,13 +137,6 @@ fn prime_field_repr_impl(repr: &syn::Ident, limbs: usize) -> proc_macro2::TokenS
                 }
 
                 Ok(())
-            }
-        }
-
-        impl ::rand::Rand for #repr {
-            #[inline(always)]
-            fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
-                #repr(rng.gen())
             }
         }
 
@@ -375,7 +363,8 @@ fn biguint_num_bits(mut v: BigUint) -> u32 {
 fn exp(base: BigUint, exp: &BigUint, modulus: &BigUint) -> BigUint {
     let mut ret = BigUint::one();
 
-    for i in exp.to_bytes_be()
+    for i in exp
+        .to_bytes_be()
         .into_iter()
         .flat_map(|x| (0..8).rev().map(move |i| (x >> i).is_odd()))
     {
@@ -396,11 +385,13 @@ fn test_exp() {
             &BigUint::from_str("5489673498567349856734895").unwrap(),
             &BigUint::from_str(
                 "52435875175126190479447740508185965837690552500527637822603658699938581184513"
-            ).unwrap()
+            )
+            .unwrap()
         ),
         BigUint::from_str(
             "4371221214068404307866768905142520595925044802278091865033317963560480051536"
-        ).unwrap()
+        )
+        .unwrap()
     );
 }
 
@@ -535,7 +526,7 @@ fn prime_field_constants_and_sqrt(
                 }
             }
         } else {
-            quote!{}
+            quote! {}
         };
 
     // Compute R^2 mod m
@@ -552,36 +543,39 @@ fn prime_field_constants_and_sqrt(
     }
     inv = inv.wrapping_neg();
 
-    (quote! {
-        /// This is the modulus m of the prime field
-        const MODULUS: #repr = #repr([#(#modulus,)*]);
+    (
+        quote! {
+            /// This is the modulus m of the prime field
+            const MODULUS: #repr = #repr([#(#modulus,)*]);
 
-        /// The number of bits needed to represent the modulus.
-        const MODULUS_BITS: u32 = #modulus_num_bits;
+            /// The number of bits needed to represent the modulus.
+            const MODULUS_BITS: u32 = #modulus_num_bits;
 
-        /// The number of bits that must be shaved from the beginning of
-        /// the representation when randomly sampling.
-        const REPR_SHAVE_BITS: u32 = #repr_shave_bits;
+            /// The number of bits that must be shaved from the beginning of
+            /// the representation when randomly sampling.
+            const REPR_SHAVE_BITS: u32 = #repr_shave_bits;
 
-        /// 2^{limbs*64} mod m
-        const R: #repr = #repr(#r);
+            /// 2^{limbs*64} mod m
+            const R: #repr = #repr(#r);
 
-        /// 2^{limbs*64*2} mod m
-        const R2: #repr = #repr(#r2);
+            /// 2^{limbs*64*2} mod m
+            const R2: #repr = #repr(#r2);
 
-        /// -(m^{-1} mod m) mod m
-        const INV: u64 = #inv;
+            /// -(m^{-1} mod m) mod m
+            const INV: u64 = #inv;
 
-        /// Multiplicative generator of `MODULUS` - 1 order, also quadratic
-        /// nonresidue.
-        const GENERATOR: #repr = #repr(#generator);
+            /// Multiplicative generator of `MODULUS` - 1 order, also quadratic
+            /// nonresidue.
+            const GENERATOR: #repr = #repr(#generator);
 
-        /// 2^s * t = MODULUS - 1 with t odd
-        const S: u32 = #s;
+            /// 2^s * t = MODULUS - 1 with t odd
+            const S: u32 = #s;
 
-        /// 2^s root of unity computed by GENERATOR^t
-        const ROOT_OF_UNITY: #repr = #repr(#root_of_unity);
-    }, sqrt_impl)
+            /// 2^s root of unity computed by GENERATOR^t
+            const ROOT_OF_UNITY: #repr = #repr(#root_of_unity);
+        },
+        sqrt_impl,
+    )
 }
 
 /// Implement PrimeField for the derived type.
@@ -601,9 +595,9 @@ fn prime_field_impl(
     mont_paramlist.append_separated(
         (0..(limbs * 2)).map(|i| (i, get_temp(i))).map(|(i, x)| {
             if i != 0 {
-                quote!{mut #x: u64}
+                quote! {mut #x: u64}
             } else {
-                quote!{#x: u64}
+                quote! {#x: u64}
             }
         }),
         proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone),
@@ -616,7 +610,7 @@ fn prime_field_impl(
         for i in 0..limbs {
             {
                 let temp = get_temp(i);
-                gen.extend(quote!{
+                gen.extend(quote! {
                     let k = #temp.wrapping_mul(INV);
                     let mut carry = 0;
                     crate::ff::mac_with_carry(#temp, k, MODULUS.0[0], &mut carry);
@@ -643,7 +637,7 @@ fn prime_field_impl(
             }
 
             if i != (limbs - 1) {
-                gen.extend(quote!{
+                gen.extend(quote! {
                     let carry2 = carry;
                 });
             }
@@ -652,7 +646,7 @@ fn prime_field_impl(
         for i in 0..limbs {
             let temp = get_temp(limbs + i);
 
-            gen.extend(quote!{
+            gen.extend(quote! {
                 (self.0).0[#i] = #temp;
             });
         }
@@ -664,7 +658,7 @@ fn prime_field_impl(
         let mut gen = proc_macro2::TokenStream::new();
 
         for i in 0..(limbs - 1) {
-            gen.extend(quote!{
+            gen.extend(quote! {
                 let mut carry = 0;
             });
 
@@ -683,7 +677,7 @@ fn prime_field_impl(
 
             let temp = get_temp(i + limbs);
 
-            gen.extend(quote!{
+            gen.extend(quote! {
                 let #temp = carry;
             });
         }
@@ -713,7 +707,7 @@ fn prime_field_impl(
             });
         }
 
-        gen.extend(quote!{
+        gen.extend(quote! {
             let mut carry = 0;
         });
 
@@ -741,7 +735,7 @@ fn prime_field_impl(
             proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone),
         );
 
-        gen.extend(quote!{
+        gen.extend(quote! {
             self.mont_reduce(#mont_calling);
         });
 
@@ -756,7 +750,7 @@ fn prime_field_impl(
         let mut gen = proc_macro2::TokenStream::new();
 
         for i in 0..limbs {
-            gen.extend(quote!{
+            gen.extend(quote! {
                 let mut carry = 0;
             });
 
@@ -776,7 +770,7 @@ fn prime_field_impl(
 
             let temp = get_temp(i + limbs);
 
-            gen.extend(quote!{
+            gen.extend(quote! {
                 let #temp = carry;
             });
         }
@@ -787,29 +781,29 @@ fn prime_field_impl(
             proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone),
         );
 
-        gen.extend(quote!{
+        gen.extend(quote! {
             self.mont_reduce(#mont_calling);
         });
 
         gen
     }
 
-    let squaring_impl = sqr_impl(quote!{self}, limbs);
-    let multiply_impl = mul_impl(quote!{self}, quote!{other}, limbs);
+    let squaring_impl = sqr_impl(quote! {self}, limbs);
+    let multiply_impl = mul_impl(quote! {self}, quote! {other}, limbs);
     let montgomery_impl = mont_impl(limbs);
 
     // (self.0).0[0], (self.0).0[1], ..., 0, 0, 0, 0, ...
     let mut into_repr_params = proc_macro2::TokenStream::new();
     into_repr_params.append_separated(
         (0..limbs)
-            .map(|i| quote!{ (self.0).0[#i] })
-            .chain((0..limbs).map(|_| quote!{0})),
+            .map(|i| quote! { (self.0).0[#i] })
+            .chain((0..limbs).map(|_| quote! {0})),
         proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone),
     );
 
     let top_limb_index = limbs - 1;
 
-    quote!{
+    quote! {
         impl ::std::marker::Copy for #name { }
 
         impl ::std::clone::Clone for #name {
@@ -851,22 +845,6 @@ fn prime_field_impl(
         impl ::std::fmt::Display for #name {
             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 write!(f, "{}({})", stringify!(#name), self.into_repr())
-            }
-        }
-
-        impl ::rand::Rand for #name {
-            /// Computes a uniformly random element using rejection sampling.
-            fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
-                loop {
-                    let mut tmp = #name(#repr::rand(rng));
-
-                    // Mask away the unused bits at the beginning.
-                    tmp.0.as_mut()[#top_limb_index] &= 0xffffffffffffffff >> REPR_SHAVE_BITS;
-
-                    if tmp.is_valid() {
-                        return tmp
-                    }
-                }
             }
         }
 
@@ -935,6 +913,26 @@ fn prime_field_impl(
         }
 
         impl crate::ff::Field for #name {
+            /// Computes a uniformly random element using rejection sampling.
+            fn random<R: ::rand::RngCore>(rng: &mut R) -> Self {
+                loop {
+                    let mut tmp = {
+                        let mut repr = [0u64; #limbs];
+                        for i in 0..#limbs {
+                            repr[i] = rng.next_u64();
+                        }
+                        #name(#repr(repr))
+                    };
+
+                    // Mask away the unused most-significant bits.
+                    tmp.0.as_mut()[#top_limb_index] &= 0xffffffffffffffff >> REPR_SHAVE_BITS;
+
+                    if tmp.is_valid() {
+                        return tmp
+                    }
+                }
+            }
+
             #[inline]
             fn zero() -> Self {
                 #name(#repr::from(0))
