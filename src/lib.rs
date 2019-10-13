@@ -20,18 +20,15 @@ extern crate ff_derive_ce;
 #[cfg(feature = "derive")]
 pub use ff_derive_ce::*;
 
-use rand::RngCore;
 use std::error::Error;
 use std::fmt;
 use std::io::{self, Read, Write};
+use rand::Rng;
 
 /// This trait represents an element of a field.
 pub trait Field:
-    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static
+    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static + rand::Rand
 {
-    /// Returns an element chosen uniformly at random using a user-provided RNG.
-    fn random<R: RngCore>(rng: &mut R) -> Self;
-
     /// Returns the zero element of the field, the additive identity.
     fn zero() -> Self;
 
@@ -114,6 +111,7 @@ pub trait PrimeFieldRepr:
     + fmt::Debug
     + fmt::Display
     + 'static
+    + rand::Rand
     + AsRef<[u64]>
     + AsMut<[u64]>
     + From<u64>
