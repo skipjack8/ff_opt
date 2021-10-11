@@ -32,8 +32,7 @@ pub trait Field:
     + fmt::Display
     + 'static
     + rand::Rand
-    + hash::Hash
-    + Default
+    + hash::Hash // + Default
 {
     /// Returns the zero element of the field, the additive identity.
     fn zero() -> Self;
